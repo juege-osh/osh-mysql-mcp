@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"time"
 
 	"github.com/viant/jsonrpc"
 
@@ -71,20 +70,9 @@ func (s *Service) set(ctx context.Context, connector *Connector, userName string
 				return nil, fmt.Errorf("user reject providing credentials %v", err)
 			}
 		}
-		// Wait for secret submission up to 5 min.
-		select {
-		case <-pend.done:
-			if s.secretExists(ctx, connector, pend.CredType) {
-				pend.NS.Connectors.Put(connector.Name, connector)
-			}
-		case <-time.After(5 * time.Minute):
-			// Timed out – return pending state with callback URL
-			return &AddOutput{Status: "ok", State: "PENDING_SECRET", CallbackURL: pend.CallbackURL, Connector: connector.Name}, nil
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-		// Secret submitted within wait window – connector activated
-		return &AddOutput{Status: "ok", Connector: connector.Name}, nil
+		// Return immediately so the client can display/open callback URL without
+		// waiting for server-side timeout.
+		return &AddOutput{Status: "ok", State: "PENDING_SECRET", CallbackURL: pend.CallbackURL, Connector: connector.Name}, nil
 	}
 	// Client cannot handle Elicit – the connector remains pending waiting for
 	// secret to be supplied out-of-band; return pending state with callback URL.
